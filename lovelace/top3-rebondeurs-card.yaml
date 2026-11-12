@@ -1,0 +1,26 @@
+# Top 3 des meilleurs rebondeurs (rebonds par match)
+type: markdown
+title: "💪 Top 3 rebondeurs"
+content: >-
+  {% set rows = state_attr('sensor.nba_meilleurs_rebondeurs', 'leaders') or [] %}
+  {% set medals = ['🥇', '🥈', '🥉'] %}
+  {% set colors = ['#FFD700', '#C0C0C0', '#CD7F32'] %}
+  {% if rows | length >= 3 %}
+  <table width="100%" style="border-collapse:separate;border-spacing:6px 0;text-align:center">
+  <tr style="vertical-align:bottom">
+  {% for i in [1, 0, 2] %}
+  {% set p = rows[i] %}
+  <td style="width:33%;padding:8px 2px;border-radius:12px;background:rgba(128,128,128,.10);border-top:4px solid {{ colors[i] }}">
+  <div style="font-size:{{ 26 if i == 0 else 20 }}px">{{ medals[i] }}</div>
+  <img src="{{ p.headshot }}" width="{{ 80 if i == 0 else 64 }}" style="border-radius:50%;border:3px solid {{ colors[i] }}">
+  <div style="font-weight:bold;font-size:{{ 14 if i == 0 else 12 }}px;margin-top:4px">{{ p.player }}</div>
+  <div style="font-size:11px;opacity:.6">{{ p.team }}</div>
+  <div style="font-size:{{ 24 if i == 0 else 18 }}px;font-weight:bold;color:{{ colors[i] }}">{{ p.value }}</div>
+  <div style="font-size:10px;opacity:.6">rebonds / match</div>
+  </td>
+  {% endfor %}
+  </tr>
+  </table>
+  {% else %}
+  Donnees indisponibles pour le moment.
+  {% endif %}
