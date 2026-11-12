@@ -26,6 +26,16 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _to_int(value: Any) -> int:
+    """Convertit un score ESPN en entier (accepte nombre, texte ou dictionnaire)."""
+    if isinstance(value, dict):
+        value = value.get("value", value.get("displayValue", 0))
+    try:
+        return int(float(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Gère la récupération des données NBA."""
 
@@ -51,7 +61,7 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:
             raise UpdateFailed(f"Erreur API ESPN: {err}") from err
 
-        games = [self._parse_game(e) for e in scoreboard.get("events", [])]
+        games = [g for g in (self._parse_game(e) for e in scoreboard.get("events", [])) if g]
         data = {
             "games": games,
             "standings": self._parse_standings(standings),
@@ -63,31 +73,49 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return data
 
     @staticmethod
-    def _parse_game(event: dict) -> dict[str, Any]:
-        comp = event["competitions"][0]
-        status = event["status"]
-        game: dict[str, Any] = {
-            "id": event["id"],
-            "date": event["date"],
-            "name": event.get("shortName"),
-            "state": status["type"]["state"],  # pre / in / post
-            "detail": status["type"].get("detail"),
-            "period": status.get("period"),
-            "clock": status.get("displayClock"),
-            "home": {},
-            "away": {},
-        }
-        for c in comp["competitors"]:
-            game[c["homeAway"]] = {
-                "id": c["team"]["id"],
-                "name": c["team"]["displayName"],
-                "abbr": c["team"]["abbreviation"],
-                "logo": c["team"].get("logo"),
-                "score": int(c.get("score", 0) or 0),
-                "winner": c.get("winner", False),
-                "record": (c.get("records") or [{}])[0].get("summary"),
+    def _parse_game(event: dict) -> dict[str, Any] | None:
+        """Transforme un match ESPN en dictionnaire simple.
+
+        Le format diffère selon l'endpoint : le statut est parfois sur l'événement
+        (scoreboard), parfois dans competitions[0] (calendrier d'équipe).
+        Retourne None si le match est dans un format inattendu.
+        """
+        try:
+            comp = event["competitions"][0]
+            status = event.get("status") or comp.get("status") or {}
+            status_type = status.get("type") or {}
+            state = status_type.get("state")
+            if state is None:
+                # Pas de statut : on déduit depuis le champ 'completed' si présent
+                state = "post" if status_type.get("completed") else "pre"
+
+            game: dict[str, Any] = {
+                "id": event["id"],
+                "date": event.get("date") or comp.get("date"),
+                "name": event.get("shortName") or event.get("name"),
+                "state": state,  # pre / in / post
+                "detail": status_type.get("detail") or status_type.get("shortDetail"),
+                "period": status.get("period"),
+                "clock": status.get("displayClock"),
+                "home": {},
+                "away": {},
             }
-        return game
+            for c in comp["competitors"]:
+                team = c.get("team", {})
+                logo = team.get("logo") or (team.get("logos") or [{}])[0].get("href")
+                game[c["homeAway"]] = {
+                    "id": str(team.get("id", c.get("id", ""))),
+                    "name": team.get("displayName") or team.get("name"),
+                    "abbr": team.get("abbreviation"),
+                    "logo": logo,
+                    "score": _to_int(c.get("score")),
+                    "winner": c.get("winner", False),
+                    "record": (c.get("records") or [{}])[0].get("summary"),
+                }
+            return game
+        except (KeyError, IndexError, TypeError) as err:
+            _LOGGER.debug("Match ignoré (format inattendu: %s): %s", err, event.get("id"))
+            return None
 
     @staticmethod
     def _parse_standings(raw: dict) -> dict[str, list[dict]]:
@@ -108,7 +136,7 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         "pct": stats.get("winPercent"),
                         "gb": stats.get("gamesBehind"),
                         "streak": stats.get("streak"),
-                        "rank": int(float(stats.get("playoffSeed") or 0)),
+                        "rank": _to_int(stats.get("playoffSeed")),
                     }
                 )
             rows.sort(key=lambda r: (r["rank"] == 0, r["rank"]))
@@ -120,6 +148,8 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
         last, nxt = None, None
         for ev in schedule.get("events", []):
             g = self._parse_game(ev)
+            if not g:
+                continue
             if g["state"] == "post":
                 last = g
             elif g["state"] in ("pre", "in") and nxt is None:
