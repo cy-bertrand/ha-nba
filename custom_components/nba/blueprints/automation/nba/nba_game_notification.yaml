@@ -1,0 +1,142 @@
+blueprint:
+  name: NBA - Notification de match
+  description: >
+    Envoie une notification au début et/ou à la fin d'un match de vos équipes
+    favorites. Le message affiche le score et l'heure locale.
+  domain: automation
+  input:
+    notify_targets:
+      name: Appareils à notifier
+      description: Choisissez un ou plusieurs téléphones ou appareils.
+      selector:
+        target:
+          entity:
+            domain: notify
+    notify_start:
+      name: Notifier le début du match
+      default: true
+      selector:
+        boolean:
+    notify_end:
+      name: Notifier la fin du match
+      default: true
+      selector:
+        boolean:
+    team_filter:
+      name: Équipe à suivre
+      description: Toutes les équipes favorites, ou une seule équipe précise.
+      default: all
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Toutes les équipes favorites
+              value: all
+            - label: Atlanta Hawks
+              value: "1"
+            - label: Boston Celtics
+              value: "2"
+            - label: Brooklyn Nets
+              value: "17"
+            - label: Charlotte Hornets
+              value: "30"
+            - label: Chicago Bulls
+              value: "4"
+            - label: Cleveland Cavaliers
+              value: "5"
+            - label: Dallas Mavericks
+              value: "6"
+            - label: Denver Nuggets
+              value: "7"
+            - label: Detroit Pistons
+              value: "8"
+            - label: Golden State Warriors
+              value: "9"
+            - label: Houston Rockets
+              value: "10"
+            - label: Indiana Pacers
+              value: "11"
+            - label: LA Clippers
+              value: "12"
+            - label: Los Angeles Lakers
+              value: "13"
+            - label: Memphis Grizzlies
+              value: "29"
+            - label: Miami Heat
+              value: "14"
+            - label: Milwaukee Bucks
+              value: "15"
+            - label: Minnesota Timberwolves
+              value: "16"
+            - label: New Orleans Pelicans
+              value: "3"
+            - label: New York Knicks
+              value: "18"
+            - label: Oklahoma City Thunder
+              value: "25"
+            - label: Orlando Magic
+              value: "19"
+            - label: Philadelphia 76ers
+              value: "20"
+            - label: Phoenix Suns
+              value: "21"
+            - label: Portland Trail Blazers
+              value: "22"
+            - label: Sacramento Kings
+              value: "23"
+            - label: San Antonio Spurs
+              value: "24"
+            - label: Toronto Raptors
+              value: "28"
+            - label: Utah Jazz
+              value: "26"
+            - label: Washington Wizards
+              value: "27"
+
+trigger_variables:
+  notify_start: !input notify_start
+  notify_end: !input notify_end
+  team_filter: !input team_filter
+
+trigger:
+  - platform: event
+    event_type: nba_game_start
+    id: start
+  - platform: event
+    event_type: nba_game_end
+    id: end
+
+condition:
+  - condition: template
+    value_template: >
+      {{ (trigger.id == 'start' and notify_start) or (trigger.id == 'end' and notify_end) }}
+  - condition: template
+    value_template: >
+      {{ team_filter == 'all'
+         or team_filter in (trigger.event.data.favorite_team_ids | default([]) | map('string') | list) }}
+
+action:
+  - service: notify.send_message
+    target: !input notify_targets
+    data:
+      title: >
+        {% if trigger.id == 'start' %}
+          🏀 Match commencé : {{ trigger.event.data.away }} @ {{ trigger.event.data.home }}
+        {% else %}
+          🏁 Match terminé : {{ trigger.event.data.away }} @ {{ trigger.event.data.home }}
+        {% endif %}
+      message: >
+        {% set a = trigger.event.data.away_score | int(0) %}
+        {% set h = trigger.event.data.home_score | int(0) %}
+        {% if trigger.id == 'start' %}
+          Coup d'envoi ! {{ trigger.event.data.away }} - {{ trigger.event.data.home }}
+          ({{ now().strftime('%H:%M') }})
+        {% else %}
+          {{ trigger.event.data.away }} {{ a }} - {{ h }} {{ trigger.event.data.home }}
+          {% if a > h %}
+            Victoire de {{ trigger.event.data.away }}
+          {% elif h > a %}
+            Victoire de {{ trigger.event.data.home }}
+          {% endif %}
+        {% endif %}
+mode: queued
