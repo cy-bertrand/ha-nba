@@ -1,10 +1,6 @@
-# Derniers matchs d'une équipe, avec détails au clic.
-# PRÉREQUIS : installer "button-card" via HACS > Interface (custom:button-card).
-# ADAPTEZ le nom du capteur (Outils de développement > États, cherchez "derniers_matchs").
-#
-# Au clic sur un match : le service nba.get_game_details est appelé et le détail
-# (score par quart-temps, meilleurs joueurs) s'affiche dans une notification
-# persistante en haut de l'écran Home Assistant.
+# Cinq derniers matchs : un clic ouvre Plus d'informations du capteur.
+# Prérequis : custom:button-card (HACS > Interface).
+# Adaptez l'entité ci-dessous à l'équipe favorite souhaitée.
 type: vertical-stack
 cards:
   - type: markdown
@@ -23,50 +19,41 @@ cards:
         - padding: 0
         - background: none
         - box-shadow: none
-    custom_fields:
-      list: >
-        [[[
-          const games = entity.attributes.games || [];
-          return games.map((g, i) => `
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid rgba(128,128,128,.25)">
-              <span style="width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:bold;color:#fff;background:${g.result === 'V' ? '#43a047' : '#e53935'}">${g.result}</span>
-              <img src="${g.opp_logo}" width="28">
-              <span style="flex:1">${g.home_away} ${g.opp_abbr}<br><small style="opacity:.6">${g.day || ''}</small></span>
-              <b>${g.team_score} - ${g.opp_score}</b>
-            </div>`).join('');
-        ]]]
-    styles:
+      grid:
+        - grid-template-areas: '"row1" "row2" "row3" "row4" "row5"'
+        - grid-template-columns: 1fr
+        - grid-template-rows: repeat(5, min-content)
       custom_fields:
-        list:
-          - width: 100%
-  # Une rangée cliquable par match (jusqu'à 5)
-  - type: grid
-    columns: 5
-    square: false
-    cards:
-      - type: custom:button-card
-        entity: sensor.los_angeles_lakers_derniers_matchs
-        show_state: false
-        show_icon: false
-        name: "[[[ const g=(entity.attributes.games||[])[0]; return g ? `${g.result} ${g.opp_abbr}` : '-'; ]]]"
-        styles:
-          card:
-            - font-size: 12px
-        tap_action:
-          action: call-service
-          service: nba.get_game_details
-          service_data:
-            game_id: "[[[ return (entity.attributes.games||[])[0]?.id; ]]]"
-      - type: custom:button-card
-        entity: sensor.los_angeles_lakers_derniers_matchs
-        show_state: false
-        show_icon: false
-        name: "[[[ const g=(entity.attributes.games||[])[1]; return g ? `${g.result} ${g.opp_abbr}` : '-'; ]]]"
-        styles:
-          card:
-            - font-size: 12px
-        tap_action:
-          action: call-service
-          service: nba.get_game_details
-          service_data:
-            game_id: "[[[ return (entity.attributes.games||[])[1]?.id; ]]]"
+        row1: [width: 100%]
+        row2: [width: 100%]
+        row3: [width: 100%]
+        row4: [width: 100%]
+        row5: [width: 100%]
+    custom_fields:
+      row1: >
+        [[[
+          const g=(entity.attributes.games||[])[0];
+          return g ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid rgba(128,128,128,.25)"><b style="color:${g.result==='V'?'#43a047':'#e53935'}">${g.result}</b><img src="${g.opp_logo||''}" width="28"><span style="flex:1">${g.home_away} ${g.opp_abbr||''}<br><small>${g.day||''}</small></span><b>${g.team_score} - ${g.opp_score}</b></div>` : '';
+        ]]]
+      row2: >
+        [[[
+          const g=(entity.attributes.games||[])[1];
+          return g ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid rgba(128,128,128,.25)"><b style="color:${g.result==='V'?'#43a047':'#e53935'}">${g.result}</b><img src="${g.opp_logo||''}" width="28"><span style="flex:1">${g.home_away} ${g.opp_abbr||''}<br><small>${g.day||''}</small></span><b>${g.team_score} - ${g.opp_score}</b></div>` : '';
+        ]]]
+      row3: >
+        [[[
+          const g=(entity.attributes.games||[])[2];
+          return g ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid rgba(128,128,128,.25)"><b style="color:${g.result==='V'?'#43a047':'#e53935'}">${g.result}</b><img src="${g.opp_logo||''}" width="28"><span style="flex:1">${g.home_away} ${g.opp_abbr||''}<br><small>${g.day||''}</small></span><b>${g.team_score} - ${g.opp_score}</b></div>` : '';
+        ]]]
+      row4: >
+        [[[
+          const g=(entity.attributes.games||[])[3];
+          return g ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid rgba(128,128,128,.25)"><b style="color:${g.result==='V'?'#43a047':'#e53935'}">${g.result}</b><img src="${g.opp_logo||''}" width="28"><span style="flex:1">${g.home_away} ${g.opp_abbr||''}<br><small>${g.day||''}</small></span><b>${g.team_score} - ${g.opp_score}</b></div>` : '';
+        ]]]
+      row5: >
+        [[[
+          const g=(entity.attributes.games||[])[4];
+          return g ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 6px"><b style="color:${g.result==='V'?'#43a047':'#e53935'}">${g.result}</b><img src="${g.opp_logo||''}" width="28"><span style="flex:1">${g.home_away} ${g.opp_abbr||''}<br><small>${g.day||''}</small></span><b>${g.team_score} - ${g.opp_score}</b></div>` : '';
+        ]]]
+    tap_action:
+      action: more-info
