@@ -25,7 +25,13 @@ Intégration personnalisée affichant scores, classements, statistiques et match
 | `sensor.nba_matchs_du_jour` | Nombre de matchs, détail dans l'attribut `games` |
 | `sensor.nba_classement_est` / `_ouest` | Premier de la conférence, classement complet dans `standings` |
 | `sensor.nba_meilleurs_marqueurs` (et rebondeurs, passeurs, intercepteurs, contreurs) | Top 10 dans l'attribut `leaders` |
-| `sensor.<equipe>_dernier_match` / `_prochain_match` / `_match_en_cours` | Une série par équipe favorite |
+| `sensor.<equipe>_dernier_match` / `_prochain_match` / `_match_en_cours` | Dernier match, prochain match et état en direct |
+| `sensor.<equipe>_derniers_matchs` | Série récente (V/D) et attribut `games` : cinq matchs terminés au maximum, avec score par quart-temps et meilleurs joueurs dans `details.teams`. Si le résumé ESPN est indisponible, `details.teams` est vide. |
+
+Les résumés sont récupérés par match et mis en cache par l'intégration. Le même cache est utilisé par le service ci-dessous.
+
+## Service de détails de match
+`nba.get_game_details` accepte `game_id` et renvoie les équipes, les scores par quart-temps et les leaders de chaque équipe. Il est notamment utile à des automatisations. La carte des derniers matchs ci-dessous n'appelle pas ce service : le clic ouvre directement la boîte « Plus d'informations » du capteur, où figurent les attributs `games`.
 
 ## Notifications (blueprint automatique)
 Au démarrage, l'intégration copie elle-même le blueprint dans `config/blueprints/automation/nba/`. Il apparaît ensuite dans **Paramètres > Automatisations et scènes > Modèles** sous le nom « NBA - Notification de match » : cliquez dessus puis **Créer une automatisation**.
@@ -35,10 +41,11 @@ Le fichier installé n'est jamais écrasé s'il existe déjà. Pour récupérer 
 Vous pouvez aussi créer votre propre automatisation sur les événements `nba_game_start` / `nba_game_end`.
 
 ## Cartes Lovelace
-Dossier `lovelace/` : ouvrez le fichier, copiez le YAML dans une carte **Manuelle**. Les cartes utilisent du HTML dans une carte Markdown, aucune dépendance externe n'est nécessaire.
+Dossier `lovelace/` : ouvrez le fichier, copiez le YAML dans une carte **Manuelle**. Les cartes utilisent du HTML dans une carte Markdown, aucune dépendance externe n'est nécessaire, sauf `last-games-card.yaml` qui requiert `custom:button-card` (installation via HACS > Interface). Adaptez dans ce fichier l'entité `sensor.los_angeles_lakers_derniers_matchs` à votre équipe. Ses cinq lignes de match ouvrent les informations détaillées du capteur au clic, sans appel de service.
 - `today-games-card.yaml` : matchs du jour
 - `standings-card.yaml` : classement (Est ou Ouest)
 - `team-card.yaml` : résumé d'une équipe (adapter les noms de capteurs)
+- `last-games-card.yaml` : cinq derniers matchs cliquables (dépendance `custom:button-card`)
 - `leaders-card.yaml` : top 10 des marqueurs avec podium
 - `top3-passeurs-card.yaml`, `top3-rebondeurs-card.yaml`, `top3-contreurs-card.yaml`, `top3-intercepteurs-card.yaml` : podiums top 3
 
