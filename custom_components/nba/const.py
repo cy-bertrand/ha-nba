@@ -11,6 +11,7 @@ STANDINGS_URL = "https://site.api.espn.com/apis/v2/sports/basketball/nba/standin
 TEAMS_URL = f"{BASE_URL}/teams"
 SCOREBOARD_URL = f"{BASE_URL}/scoreboard"
 TEAM_SCHEDULE_URL = f"{BASE_URL}/teams/{{team_id}}/schedule"
+SUMMARY_URL = f"{BASE_URL}/summary"
 # Leaders de la saison (marqueurs, passeurs, ...)
 LEADERS_URL = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete"
 
@@ -23,6 +24,11 @@ LEADER_CATEGORIES = {
     "blocks": ("Contreurs", "defensive.avgBlocks:desc"),
 }
 LEADERS_COUNT = 10
+
+# Nombre de derniers matchs conservés par équipe
+LAST_GAMES_COUNT = 5
+
+SERVICE_GET_GAME_DETAILS = "get_game_details"
 
 SCAN_INTERVAL_IDLE = timedelta(minutes=15)
 SCAN_INTERVAL_LIVE = timedelta(seconds=30)

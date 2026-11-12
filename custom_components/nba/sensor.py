@@ -28,6 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             NBATeamSensor(coordinator, team_id, "last", "Dernier match"),
             NBATeamSensor(coordinator, team_id, "next", "Prochain match"),
             NBATeamSensor(coordinator, team_id, "live", "Match en cours"),
+            NBARecentGamesSensor(coordinator, team_id),
         ]
     async_add_entities(entities)
 
@@ -143,3 +144,30 @@ class NBATeamSensor(NBABaseSensor):
         if self._game:
             attrs.update(self._game)
         return attrs
+
+
+class NBARecentGamesSensor(NBABaseSensor):
+    """Les derniers matchs d'une équipe (résultat, score, adversaire)."""
+
+    _attr_icon = "mdi:history"
+
+    def __init__(self, coordinator: NBACoordinator, team_id: str) -> None:
+        super().__init__(coordinator)
+        self._team_id = team_id
+        info = coordinator.data["teams"][team_id]
+        self._attr_name = f"{info['name']} Derniers matchs"
+        self._attr_unique_id = f"{DOMAIN}_{team_id}_recent"
+
+    def _recent(self) -> list[dict]:
+        return self.coordinator.data["teams"][self._team_id].get("recent", [])
+
+    @property
+    def native_value(self) -> str | None:
+        """Série récente, ex: 'V V D V V' (le plus récent en premier)."""
+        recent = self._recent()
+        return " ".join(g["result"] for g in recent) if recent else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        info = self.coordinator.data["teams"][self._team_id]
+        return {"games": self._recent(), "team_logo": info.get("logo"), "team_id": self._team_id}

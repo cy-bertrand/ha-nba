@@ -18,6 +18,7 @@ from .const import (
     DOMAIN,
     EVENT_GAME_END,
     EVENT_GAME_START,
+    LAST_GAMES_COUNT,
     LEADER_CATEGORIES,
     LEADERS_COUNT,
     LEADERS_URL,
@@ -25,6 +26,7 @@ from .const import (
     SCAN_INTERVAL_LIVE,
     SCOREBOARD_URL,
     STANDINGS_URL,
+    SUMMARY_URL,
     TEAM_SCHEDULE_URL,
 )
 
@@ -69,6 +71,7 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_state: dict[str, str] = {}
         self._leaders: dict[str, list[dict]] = {}
         self._leaders_fetched: datetime | None = None
+        self._details_cache: dict[str, dict[str, Any]] = {}
 
     async def _get(self, url: str, params: dict | None = None) -> dict:
         async with self.session.get(url, params=params, timeout=20) as resp:
@@ -243,14 +246,37 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _parse_team(self, team_id: str, schedule: dict, today_games: list[dict]) -> dict[str, Any]:
         team = schedule.get("team", {})
         last, nxt = None, None
+        history: list[dict] = []
         for ev in schedule.get("events", []):
             g = self._parse_game(ev)
             if not g:
                 continue
             if g["state"] == "post":
                 last = g
+                history.append(g)
             elif g["state"] in ("pre", "in") and nxt is None:
                 nxt = g
+        # Les plus récents d'abord, avec résultat (V/D) du point de vue de l'équipe
+        recent: list[dict] = []
+        for g in reversed(history[-LAST_GAMES_COUNT:]):
+            is_home = g["home"].get("id") == team_id
+            me = g["home"] if is_home else g["away"]
+            opp = g["away"] if is_home else g["home"]
+            recent.append(
+                {
+                    "id": g["id"],
+                    "day": g["day"],
+                    "date_text": g["date_text"],
+                    "home_away": "vs" if is_home else "@",
+                    "result": "V" if me.get("winner") else "D",
+                    "team_abbr": me.get("abbr"),
+                    "team_score": me.get("score"),
+                    "opp_abbr": opp.get("abbr"),
+                    "opp_name": opp.get("name"),
+                    "opp_logo": opp.get("logo"),
+                    "opp_score": opp.get("score"),
+                }
+            )
         live = next(
             (g for g in today_games if g["state"] == "in" and team_id in (g["home"].get("id"), g["away"].get("id"))),
             None,
@@ -262,7 +288,81 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "last": last,
             "next": nxt,
             "live": live,
+            "recent": recent,
         }
+
+    async def async_get_game_details(self, game_id: str) -> dict[str, Any]:
+        """Charge les détails d'un match (quart-temps, meilleurs joueurs).
+
+        Les matchs terminés sont mis en cache (leurs détails ne changent plus).
+        Ne lève jamais d'exception : en cas de problème, renvoie un dictionnaire
+        avec une clé 'error'.
+        """
+        game_id = str(game_id)
+        if game_id in self._details_cache:
+            return self._details_cache[game_id]
+        try:
+            raw = await self._get(SUMMARY_URL, params={"event": game_id})
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Détails du match %s indisponibles: %s", game_id, err)
+            return {"game_id": game_id, "error": str(err), "teams": []}
+
+        details = self._parse_summary(game_id, raw)
+        if details.get("final"):
+            self._details_cache[game_id] = details
+        return details
+
+    @staticmethod
+    def _parse_summary(game_id: str, raw: dict) -> dict[str, Any]:
+        """Extrait scores par quart-temps et meilleurs joueurs (tolérant aux manques)."""
+        result: dict[str, Any] = {"game_id": game_id, "teams": [], "final": False}
+        try:
+            comp = (raw.get("header", {}).get("competitions") or [{}])[0]
+            result["final"] = bool((comp.get("status", {}).get("type") or {}).get("completed"))
+            lines: dict[str, dict] = {}
+            for c in comp.get("competitors", []):
+                tid = str(c.get("id") or (c.get("team") or {}).get("id", ""))
+                lines[tid] = {
+                    "abbr": (c.get("team") or {}).get("abbreviation"),
+                    "name": (c.get("team") or {}).get("displayName"),
+                    "logo": (c.get("team") or {}).get("logos", [{}])[0].get("href")
+                    if (c.get("team") or {}).get("logos") else (c.get("team") or {}).get("logo"),
+                    "score": _to_int(c.get("score")),
+                    "winner": c.get("winner", False),
+                    "home_away": c.get("homeAway"),
+                    "quarters": [_to_int(ls) for ls in (c.get("linescores") or [])],
+                }
+        except (KeyError, IndexError, TypeError, AttributeError) as err:
+            _LOGGER.debug("Résumé %s : en-tête inattendu (%s)", game_id, err)
+            lines = {}
+
+        # Meilleurs joueurs : on prend les leaders de chaque équipe si présents
+        try:
+            for block in raw.get("leaders", []) or []:
+                tid = str((block.get("team") or {}).get("id", ""))
+                entry = lines.setdefault(tid, {"abbr": (block.get("team") or {}).get("abbreviation"),
+                                               "quarters": []})
+                top: list[dict] = []
+                for cat in block.get("leaders", []) or []:
+                    leader = (cat.get("leaders") or [{}])[0]
+                    athlete = leader.get("athlete") or {}
+                    if not athlete:
+                        continue
+                    top.append(
+                        {
+                            "category": cat.get("displayName") or cat.get("name"),
+                            "player": athlete.get("displayName"),
+                            "headshot": (athlete.get("headshot") or {}).get("href")
+                            if isinstance(athlete.get("headshot"), dict) else athlete.get("headshot"),
+                            "value": leader.get("displayValue"),
+                        }
+                    )
+                entry["top_players"] = top
+        except (KeyError, IndexError, TypeError, AttributeError) as err:
+            _LOGGER.debug("Résumé %s : leaders inattendus (%s)", game_id, err)
+
+        result["teams"] = list(lines.values())
+        return result
 
     def _fire_events(self, games: list[dict]) -> None:
         """Envoie des événements HA quand un match de vos équipes démarre ou se termine."""

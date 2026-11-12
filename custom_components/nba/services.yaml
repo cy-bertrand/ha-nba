@@ -1,0 +1,11 @@
+get_game_details:
+  name: Détails d'un match
+  description: Renvoie les scores par quart-temps et les meilleurs joueurs d'un match NBA.
+  fields:
+    game_id:
+      name: Identifiant du match
+      description: Identifiant ESPN du match (attribut `id` d'un match des derniers matchs).
+      required: true
+      example: "401810000"
+      selector:
+        text:
