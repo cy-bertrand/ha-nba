@@ -1,0 +1,9 @@
+# Carte classement (nécessite la carte "auto-entities" ou simplement markdown ci-dessous)
+type: markdown
+title: 🏀 Classement Est
+content: >
+  | # | Équipe | V | D | % |
+  |:-:|:--|:-:|:-:|:-:|
+  {% for t in state_attr('sensor.nba_classement_est', 'standings')[:15] -%}
+  | {{ t.rank }} | {{ t.team }} | {{ t.wins }} | {{ t.losses }} | {{ t.pct }} |
+  {% endfor %}

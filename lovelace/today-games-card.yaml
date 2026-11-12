@@ -1,0 +1,9 @@
+type: markdown
+title: 🏀 Matchs du jour
+content: >
+  {% set games = state_attr('sensor.nba_matchs_du_jour', 'games') or [] %}
+  {% if games | length == 0 %}Aucun match aujourd'hui.{% endif %}
+  {% for g in games -%}
+  **{{ g.away.name }}** {{ g.away.score }} - {{ g.home.score }} **{{ g.home.name }}** — {{ g.detail }}
+
+  {% endfor %}

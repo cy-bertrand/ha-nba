@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "NBA",
+        "description": "Choisissez vos équipes favorites et les notifications.",
+        "data": {
+          "teams": "Équipes favorites",
+          "notify_start": "Événement au début des matchs",
+          "notify_end": "Événement à la fin des matchs"
+        }
+      }
+    },
+    "abort": {
+      "cannot_connect": "Impossible de joindre l'API ESPN.",
+      "already_configured": "L'intégration est déjà configurée."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options NBA",
+        "data": {
+          "teams": "Équipes favorites",
+          "notify_start": "Événement au début des matchs",
+          "notify_end": "Événement à la fin des matchs"
+        }
+      }
+    }
+  }
+}

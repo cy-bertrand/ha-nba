@@ -1,0 +1,25 @@
+blueprint:
+  name: NBA - Notification de match
+  description: Envoie une notification au début ou à la fin d'un match de vos équipes favorites.
+  domain: automation
+  input:
+    notify_service:
+      name: Service de notification
+      description: Ex. notify.mobile_app_mon_telephone
+      selector:
+        text:
+trigger:
+  - platform: event
+    event_type: nba_game_start
+    id: start
+  - platform: event
+    event_type: nba_game_end
+    id: end
+action:
+  - service: !input notify_service
+    data:
+      title: >
+        {{ '🏀 Match commencé' if trigger.id == 'start' else '🏁 Match terminé' }}
+      message: >
+        {{ trigger.event.data.away }} {{ trigger.event.data.away_score }} - {{ trigger.event.data.home_score }} {{ trigger.event.data.home }}
+mode: queued

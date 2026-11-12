@@ -1,0 +1,10 @@
+# Remplacez le nom de l'entité par celui de votre équipe (voir Outils de développement > États)
+type: markdown
+title: 🏀 Mon équipe
+content: >
+  {% set last = states.sensor.los_angeles_lakers_dernier_match %}
+  {% set next = states.sensor.los_angeles_lakers_prochain_match %}
+  **Dernier match :** {{ last.state if last else 'n/a' }}
+
+  **Prochain match :** {{ next.state if next else 'n/a' }}
+  ({{ next.attributes.detail if next else '' }})

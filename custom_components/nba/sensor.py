@@ -1,0 +1,117 @@
+"""Capteurs NBA."""
+from __future__ import annotations
+
+from typing import Any
+
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo, DeviceEntryType
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN
+from .coordinator import NBACoordinator
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+    coordinator: NBACoordinator = hass.data[DOMAIN][entry.entry_id]
+    entities: list[SensorEntity] = [
+        NBATodayGamesSensor(coordinator),
+        NBAStandingsSensor(coordinator, "Eastern Conference", "east"),
+        NBAStandingsSensor(coordinator, "Western Conference", "west"),
+    ]
+    for team_id in coordinator.teams:
+        entities += [
+            NBATeamSensor(coordinator, team_id, "last", "Dernier match"),
+            NBATeamSensor(coordinator, team_id, "next", "Prochain match"),
+            NBATeamSensor(coordinator, team_id, "live", "Match en cours"),
+        ]
+    async_add_entities(entities)
+
+
+class NBABaseSensor(CoordinatorEntity[NBACoordinator], SensorEntity):
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: NBACoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, "nba")},
+            name="NBA",
+            manufacturer="ESPN",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+
+class NBATodayGamesSensor(NBABaseSensor):
+    _attr_name = "Matchs du jour"
+    _attr_icon = "mdi:basketball"
+
+    def __init__(self, coordinator: NBACoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{DOMAIN}_today"
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.data["games"])
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"games": self.coordinator.data["games"]}
+
+
+class NBAStandingsSensor(NBABaseSensor):
+    _attr_icon = "mdi:podium"
+
+    def __init__(self, coordinator: NBACoordinator, conference: str, slug: str) -> None:
+        super().__init__(coordinator)
+        self._conf = conference
+        self._attr_name = f"Classement {'Est' if slug == 'east' else 'Ouest'}"
+        self._attr_unique_id = f"{DOMAIN}_standings_{slug}"
+
+    def _rows(self) -> list[dict]:
+        for name, rows in self.coordinator.data["standings"].items():
+            if self._conf.split()[0].lower() in name.lower():
+                return rows
+        return []
+
+    @property
+    def native_value(self) -> str | None:
+        rows = self._rows()
+        return rows[0]["team"] if rows else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"standings": self._rows()}
+
+
+class NBATeamSensor(NBABaseSensor):
+    def __init__(self, coordinator: NBACoordinator, team_id: str, kind: str, label: str) -> None:
+        super().__init__(coordinator)
+        self._team_id = team_id
+        self._kind = kind
+        info = coordinator.data["teams"][team_id]
+        self._attr_name = f"{info['name']} {label}"
+        self._attr_unique_id = f"{DOMAIN}_{team_id}_{kind}"
+        self._attr_icon = {"last": "mdi:history", "next": "mdi:calendar-clock", "live": "mdi:basketball-hoop"}[kind]
+
+    @property
+    def _game(self) -> dict | None:
+        return self.coordinator.data["teams"][self._team_id].get(self._kind)
+
+    @property
+    def native_value(self) -> str | None:
+        g = self._game
+        if not g:
+            return "Aucun" if self._kind == "live" else None
+        if self._kind == "next":
+            return g["name"]
+        return f"{g['away'].get('abbr')} {g['away'].get('score')} - {g['home'].get('score')} {g['home'].get('abbr')}"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        info = self.coordinator.data["teams"][self._team_id]
+        attrs: dict[str, Any] = {"team_logo": info.get("logo"), "team_id": self._team_id}
+        if self._game:
+            attrs.update(self._game)
+        return attrs
