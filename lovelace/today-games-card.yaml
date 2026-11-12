@@ -1,9 +1,24 @@
+# Matchs du jour avec logos, scores, statut et heure locale. Vos équipes sont en surbrillance.
 type: markdown
 title: 🏀 Matchs du jour
-content: >
+content: >-
   {% set games = state_attr('sensor.nba_matchs_du_jour', 'games') or [] %}
+  {% set favs = state_attr('sensor.nba_matchs_du_jour', 'favorites') or [] %}
   {% if games | length == 0 %}Aucun match aujourd'hui.{% endif %}
+  <table width="100%" style="border-collapse:collapse;font-size:14px">
   {% for g in games -%}
-  **{{ g.away.name }}** {{ g.away.score }} - {{ g.home.score }} **{{ g.home.name }}** — {{ g.detail }}
-
+  {% set fav = g.home.id in favs or g.away.id in favs %}
+  {% set live = g.state == 'in' %}
+  <tr style="border-bottom:1px solid rgba(128,128,128,.2);{{ 'background:rgba(255,193,7,.18)' if fav else '' }}">
+  <td style="padding:6px;text-align:right;{{ 'font-weight:bold' if g.away.winner else '' }}">{{ g.away.abbr }} <img src="{{ g.away.logo }}" width="26" style="vertical-align:middle"></td>
+  <td style="text-align:center;white-space:nowrap;font-size:16px;font-weight:bold">
+  {% if g.state == 'pre' %}<span style="opacity:.7;font-size:13px">{{ g.time }}</span>
+  {% else %}{{ g.away.score }} - {{ g.home.score }}{% endif %}
+  </td>
+  <td style="{{ 'font-weight:bold' if g.home.winner else '' }}"><img src="{{ g.home.logo }}" width="26" style="vertical-align:middle"> {{ g.home.abbr }}</td>
+  <td style="font-size:12px;text-align:right;{{ 'color:#e53935;font-weight:bold' if live else 'opacity:.6' }}">
+  {% if live %}🔴 {{ g.detail }}{% elif g.state == 'post' %}Terminé{% else %}{{ g.day }}{% endif %}
+  </td>
+  </tr>
   {% endfor %}
+  </table>

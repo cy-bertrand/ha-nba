@@ -1,10 +1,21 @@
-# Remplacez le nom de l'entité par celui de votre équipe (voir Outils de développement > États)
+# Résumé d'une équipe (dernier match, prochain match, match en cours).
+# ADAPTEZ les 3 noms de capteurs ci-dessous (Outils de développement > États, cherchez "nba").
 type: markdown
 title: 🏀 Mon équipe
-content: >
+content: >-
   {% set last = states.sensor.los_angeles_lakers_dernier_match %}
-  {% set next = states.sensor.los_angeles_lakers_prochain_match %}
-  **Dernier match :** {{ last.state if last else 'n/a' }}
-
-  **Prochain match :** {{ next.state if next else 'n/a' }}
-  ({{ next.attributes.detail if next else '' }})
+  {% set nxt = states.sensor.los_angeles_lakers_prochain_match %}
+  {% set live = states.sensor.los_angeles_lakers_match_en_cours %}
+  {% if last %}<div style="text-align:center"><img src="{{ last.attributes.team_logo }}" width="70"></div>{% endif %}
+  {% if live and live.state != 'Aucun' %}
+  <h3 style="text-align:center;color:#e53935">🔴 EN DIRECT : {{ live.state }}</h3>
+  <p style="text-align:center">{{ live.attributes.detail }}</p>
+  {% endif %}
+  <table width="100%" style="font-size:14px">
+  <tr><td><b>Dernier match</b></td>
+  <td style="text-align:right">{{ last.state if last else 'n/a' }}
+  <br><small style="opacity:.6">{{ last.attributes.day if last else '' }}</small></td></tr>
+  <tr><td><b>Prochain match</b></td>
+  <td style="text-align:right">{{ nxt.attributes.name if nxt else 'n/a' }}
+  <br><small style="opacity:.6">{{ nxt.attributes.date_text if nxt else '' }}</small></td></tr>
+  </table>

@@ -10,7 +10,7 @@ from homeassistant.helpers.device_registry import DeviceInfo, DeviceEntryType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, LEADER_CATEGORIES
 from .coordinator import NBACoordinator
 
 
@@ -21,6 +21,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         NBAStandingsSensor(coordinator, "Eastern Conference", "east"),
         NBAStandingsSensor(coordinator, "Western Conference", "west"),
     ]
+    for key in LEADER_CATEGORIES:
+        entities.append(NBALeadersSensor(coordinator, key))
     for team_id in coordinator.teams:
         entities += [
             NBATeamSensor(coordinator, team_id, "last", "Dernier match"),
@@ -57,7 +59,7 @@ class NBATodayGamesSensor(NBABaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"games": self.coordinator.data["games"]}
+        return {"games": self.coordinator.data["games"], "favorites": self.coordinator.data["favorites"]}
 
 
 class NBAStandingsSensor(NBABaseSensor):
@@ -82,7 +84,33 @@ class NBAStandingsSensor(NBABaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"standings": self._rows()}
+        return {"standings": self._rows(), "favorites": self.coordinator.data["favorites"]}
+
+
+class NBALeadersSensor(NBABaseSensor):
+    """Meilleurs joueurs de la saison dans une catégorie (points, passes, ...)."""
+
+    _attr_icon = "mdi:trophy"
+
+    def __init__(self, coordinator: NBACoordinator, key: str) -> None:
+        super().__init__(coordinator)
+        self._key = key
+        self._attr_name = f"Meilleurs {LEADER_CATEGORIES[key][0].lower()}"
+        self._attr_unique_id = f"{DOMAIN}_leaders_{key}"
+
+    def _rows(self) -> list[dict]:
+        return self.coordinator.data.get("leaders", {}).get(self._key, [])
+
+    @property
+    def native_value(self) -> str | None:
+        rows = self._rows()
+        if not rows:
+            return None
+        return f"{rows[0]['player']} ({rows[0]['value']})"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"leaders": self._rows(), "category": LEADER_CATEGORIES[self._key][0]}
 
 
 class NBATeamSensor(NBABaseSensor):
@@ -105,7 +133,7 @@ class NBATeamSensor(NBABaseSensor):
         if not g:
             return "Aucun" if self._kind == "live" else None
         if self._kind == "next":
-            return g["name"]
+            return f"{g['name']} - {g['date_text']}" if g.get("date_text") else g["name"]
         return f"{g['away'].get('abbr')} {g['away'].get('score')} - {g['home'].get('score')} {g['home'].get('abbr')}"
 
     @property

@@ -1,9 +1,23 @@
-# Carte classement (nécessite la carte "auto-entities" ou simplement markdown ci-dessous)
+# Classement Est avec logos, couleurs de zones (playoffs / play-in) et équipes favorites en surbrillance.
+# Pour le classement Ouest : remplacez sensor.nba_classement_est par sensor.nba_classement_ouest
+# et le titre par "Classement Ouest".
 type: markdown
 title: 🏀 Classement Est
-content: >
-  | # | Équipe | V | D | % |
-  |:-:|:--|:-:|:-:|:-:|
-  {% for t in state_attr('sensor.nba_classement_est', 'standings')[:15] -%}
-  | {{ t.rank }} | {{ t.team }} | {{ t.wins }} | {{ t.losses }} | {{ t.pct }} |
+content: >-
+  {% set rows = state_attr('sensor.nba_classement_est', 'standings') or [] %}
+  {% set favs = state_attr('sensor.nba_classement_est', 'favorites') or [] %}
+  <table width="100%" style="border-collapse:collapse;font-size:14px">
+  <tr style="opacity:.6;font-size:12px;text-align:center">
+  <th>#</th><th style="text-align:left">Équipe</th><th>V</th><th>D</th><th>%</th><th>Écart</th><th>Série</th>
+  </tr>
+  {% for t in rows -%}
+  {% set fav = t.team_id in favs %}
+  {% set zone = '#43a047' if loop.index <= 6 else ('#fb8c00' if loop.index <= 10 else 'transparent') %}
+  <tr style="text-align:center;border-bottom:1px solid rgba(128,128,128,.2);{{ 'background:rgba(255,193,7,.18);font-weight:bold' if fav else '' }}">
+  <td style="border-left:4px solid {{ zone }};padding:4px">{{ loop.index }}</td>
+  <td style="text-align:left"><img src="{{ t.logo }}" width="22" style="vertical-align:middle;margin-right:6px">{{ t.abbr }}</td>
+  <td>{{ t.wins }}</td><td>{{ t.losses }}</td><td>{{ t.pct }}</td><td>{{ t.gb }}</td><td>{{ t.streak }}</td>
+  </tr>
   {% endfor %}
+  </table>
+  <small>🟩 Playoffs directs &nbsp; 🟧 Play-in &nbsp; 🟨 Vos équipes</small>

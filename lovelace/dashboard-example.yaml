@@ -1,0 +1,11 @@
+# Exemple de vue complète : collez-la dans l'éditeur de code source (YAML brut) de votre tableau de bord.
+# Pensez à adapter les noms de capteurs d'équipe dans lovelace/team-card.yaml.
+title: NBA
+path: nba
+icon: mdi:basketball
+cards:
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        title: 🏀 Matchs du jour
+        content: "Collez ici le contenu de today-games-card.yaml"

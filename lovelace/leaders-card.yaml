@@ -1,0 +1,18 @@
+# Meilleurs marqueurs de la saison (moyenne par match).
+# Pour les autres catégories, remplacez le capteur et le titre :
+#   sensor.nba_meilleurs_rebondeurs / sensor.nba_meilleurs_passeurs
+#   sensor.nba_meilleurs_intercepteurs / sensor.nba_meilleurs_contreurs
+type: markdown
+title: 🏆 Meilleurs marqueurs
+content: >-
+  {% set rows = state_attr('sensor.nba_meilleurs_marqueurs', 'leaders') or [] %}
+  <table width="100%" style="border-collapse:collapse;font-size:14px">
+  {% for p in rows -%}
+  <tr style="border-bottom:1px solid rgba(128,128,128,.2)">
+  <td style="padding:4px;width:24px;text-align:center">{{ p.rank }}</td>
+  <td style="width:44px"><img src="{{ p.headshot }}" width="40" style="vertical-align:middle;border-radius:50%"></td>
+  <td><b>{{ p.player }}</b><br><small style="opacity:.6">{{ p.team }}</small></td>
+  <td style="text-align:right;font-size:16px;font-weight:bold">{{ p.value }}</td>
+  </tr>
+  {% endfor %}
+  </table>
