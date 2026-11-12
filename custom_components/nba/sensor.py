@@ -159,7 +159,11 @@ class NBARecentGamesSensor(NBABaseSensor):
         self._attr_unique_id = f"{DOMAIN}_{team_id}_recent"
 
     def _recent(self) -> list[dict]:
-        return self.coordinator.data["teams"][self._team_id].get("recent", [])
+        """Matchs récents, détails inclus dans l'attribut `games`."""
+        return [
+            {**game, "details": game.get("details", {"teams": []})}
+            for game in self.coordinator.data["teams"][self._team_id].get("recent", [])
+        ]
 
     @property
     def native_value(self) -> str | None:

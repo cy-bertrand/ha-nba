@@ -91,10 +91,30 @@ class NBACoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._update_leaders()
 
         games = [g for g in (self._parse_game(e) for e in scoreboard.get("events", [])) if g]
+        team_data = {tid: self._parse_team(tid, schedules[tid], games) for tid in self.teams}
+        # Complète les cinq rencontres de chaque équipe en réutilisant le cache
+        # partagé avec le service nba.get_game_details.
+        detail_ids = list(dict.fromkeys(
+            game["id"] for info in team_data.values() for game in info["recent"]
+        ))
+        for game_id in detail_ids:
+            try:
+                summary = await self.async_get_game_details(game_id)
+            except Exception as err:  # noqa: BLE001 - un résumé absent ne bloque pas l'actualisation
+                _LOGGER.debug("Résumé ESPN %s indisponible: %s", game_id, err)
+                summary = {}
+            # Un résumé ESPN peut manquer ou être incomplet : un détail vide reste
+            # utilisable et aucune erreur ne remonte au coordinateur.
+            detail = {"teams": summary.get("teams", [])} if summary else {"teams": []}
+            for info in team_data.values():
+                for recent_game in info["recent"]:
+                    if recent_game["id"] == game_id:
+                        recent_game["details"] = detail
+
         data = {
             "games": games,
             "standings": self._parse_standings(standings),
-            "teams": {tid: self._parse_team(tid, schedules[tid], games) for tid in self.teams},
+            "teams": team_data,
             "leaders": self._leaders,
             "favorites": list(self.teams),
         }
