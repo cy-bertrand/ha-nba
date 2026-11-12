@@ -8,7 +8,7 @@ content: >-
   {% if rows | length >= 3 %}
   <table width="100%" style="border-collapse:separate;border-spacing:6px 0;text-align:center">
   <tr style="vertical-align:bottom">
-  {% for i in [1, 0, 2] %}
+  {% for i in [0, 1, 2] %}
   {% set p = rows[i] %}
   <td style="width:33%;padding:8px 2px;border-radius:12px;background:rgba(128,128,128,.10);border-top:4px solid {{ colors[i] }}">
   <div style="font-size:{{ 26 if i == 0 else 20 }}px">{{ medals[i] }}</div>
